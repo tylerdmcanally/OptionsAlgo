@@ -19,6 +19,12 @@ beautifulsoup4>=4.12.0
 # Technical Analysis
 pandas-ta>=0.3.14b
 
+# Backtesting & Strategy Framework
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+
 # APIs
 polygon-api-client>=1.12.0
 aiohttp>=3.8.0

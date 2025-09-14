@@ -11,6 +11,7 @@ from loguru import logger
 
 # Import our Polygon manager
 from polygon_manager import PolygonAPIManager
+from streamlit_integration import StreamlitIntegration
 
 try:
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -31,6 +32,14 @@ class SentimentAnalyzer:
         
         # Initialize Polygon manager
         self.polygon_manager = PolygonAPIManager(polygon_api_key)
+        
+        # Initialize dashboard integration
+        try:
+            self.dashboard = StreamlitIntegration()
+            logger.info("Streamlit dashboard integration initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize dashboard: {e}")
+            self.dashboard = None
         
         # Initialize FinBERT if available
         if FINBERT_AVAILABLE:
@@ -238,3 +247,108 @@ class SentimentAnalyzer:
         except Exception as e:
             logger.debug(f"Error with simple sentiment: {e}")
             return 0.0
+
+    def push_opportunities_to_dashboard(self, opportunities: List[Dict]):
+        """Push trading opportunities to the Streamlit dashboard"""
+        try:
+            if not self.dashboard:
+                logger.warning("Dashboard not initialized, cannot push opportunities")
+                return False
+                
+            # Example opportunities format
+            example_opportunities = [{
+                'symbol': 'AAPL',
+                'contract_type': 'CALL', 
+                'strike_price': 175.0,
+                'expiration_date': '2025-01-17',
+                'premium': 2.50,
+                'delta': 0.65
+            }]
+            
+            # Use provided opportunities or example
+            opportunities_to_push = opportunities if opportunities else example_opportunities
+            
+            # Push to dashboard
+            result = self.dashboard.push_opportunities_to_dashboard(opportunities_to_push)
+            logger.info(f"Successfully pushed {len(opportunities_to_push)} opportunities to dashboard")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error pushing opportunities to dashboard: {e}")
+            return False
+
+    def push_trade_to_dashboard(self, trade: Dict):
+        """Push executed trade to the Streamlit dashboard"""
+        try:
+            if not self.dashboard:
+                logger.warning("Dashboard not initialized, cannot push trade")
+                return False
+                
+            # Example trade format
+            example_trade = {
+                'symbol': 'AAPL',
+                'contract_type': 'CALL',
+                'action': 'BUY',
+                'quantity': 2,
+                'price': 2.45,
+                'date': '2025-09-14'
+            }
+            
+            # Use provided trade or example
+            trade_to_push = trade if trade else example_trade
+            
+            # Push to dashboard
+            result = self.dashboard.push_trade_to_dashboard(trade_to_push)
+            logger.info(f"Successfully pushed trade to dashboard: {trade_to_push['symbol']} {trade_to_push['action']}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error pushing trade to dashboard: {e}")
+            return False
+
+    def get_dashboard_data(self):
+        """Get current portfolio status and data from the Streamlit dashboard"""
+        try:
+            if not self.dashboard:
+                logger.warning("Dashboard not initialized, cannot get data")
+                return None
+                
+            # Get dashboard data
+            data = self.dashboard.get_dashboard_data()
+            
+            if data:
+                logger.info("Successfully retrieved dashboard data")
+                # Log key metrics for debugging
+                if 'pnl_breakdown' in data:
+                    total_pnl = data['pnl_breakdown'].get('total_unrealized_pnl', 0)
+                    logger.debug(f"Current P&L: ${total_pnl:,.2f}")
+            else:
+                logger.warning("No data retrieved from dashboard")
+                
+            return data
+            
+        except Exception as e:
+            logger.error(f"Error getting dashboard data: {e}")
+            return None
+
+    def check_profit_taking_trigger(self, threshold: float = 1000.0):
+        """Check if profit-taking should be triggered based on dashboard data"""
+        try:
+            data = self.get_dashboard_data()
+            
+            if not data or 'pnl_breakdown' not in data:
+                logger.warning("No P&L data available for profit-taking check")
+                return False
+                
+            total_pnl = data['pnl_breakdown'].get('total_unrealized_pnl', 0)
+            
+            if total_pnl > threshold:
+                logger.info(f"Profit-taking trigger activated: P&L ${total_pnl:,.2f} > ${threshold:,.2f}")
+                return True
+            else:
+                logger.debug(f"Profit-taking not triggered: P&L ${total_pnl:,.2f} <= ${threshold:,.2f}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error checking profit-taking trigger: {e}")
+            return False
